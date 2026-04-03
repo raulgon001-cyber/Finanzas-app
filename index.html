@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control Financiero</title>
+
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<style>
+body { margin:0; background:#0d0d1f; color:white; font-family:sans-serif; }
+input, button { font-size:16px; }
+button { padding:8px 12px; margin:4px; border:none; border-radius:6px; }
+.card { background:#16162a; padding:12px; border-radius:10px; margin-bottom:10px; }
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+
+const { useState, useEffect } = React;
+
+// 🔥 Guardado automático
+const useStorage = (key, initial) => {
+  const [data, setData] = useState(() => {
+    const saved = localStorage.getItem(key);
+    return saved ? JSON.parse(saved) : initial;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(key, JSON.stringify(data));
+  }, [data]);
+
+  return [data, setData];
+};
+
+function App() {
+  const [ingreso, setIngreso] = useStorage("ingreso", 44000);
+  const [gastos, setGastos] = useStorage("gastos", []);
+  const [deudas, setDeudas] = useStorage("deudas", []);
+
+  const [nuevoGasto, setNuevoGasto] = useState("");
+  const [montoGasto, setMontoGasto] = useState("");
+
+  const [nuevaDeuda, setNuevaDeuda] = useState("");
+  const [montoDeuda, setMontoDeuda] = useState("");
+
+  const totalGastos = gastos.reduce((a,b)=>a+b.monto,0);
+  const totalDeuda = deudas.reduce((a,b)=>a+b.saldo,0);
+  const disponible = ingreso - totalGastos;
+
+  // 🔥 Proyección simple
+  const proyeccionMeses = () => {
+    let deuda = totalDeuda;
+    let meses = 0;
+    let pago = disponible > 0 ? disponible : 0;
+
+    while(deuda > 0 && meses < 60){
+      deuda -= pago;
+      meses++;
+    }
+    return meses;
+  };
+
+  return (
+    <div style={{padding:16}}>
+
+      <h2>💰 Control Financiero</h2>
+
+      <div className="card">
+        <h3>Ingreso mensual</h3>
+        <input type="number" value={ingreso} onChange={e=>setIngreso(parseFloat(e.target.value)||0)} />
+      </div>
+
+      <div className="card">
+        <h3>Gastos</h3>
+
+        <input placeholder="Nombre" value={nuevoGasto} onChange={e=>setNuevoGasto(e.target.value)} />
+        <input placeholder="Monto" type="number" value={montoGasto} onChange={e=>setMontoGasto(e.target.value)} />
+
+        <button onClick={()=>{
+          if(!nuevoGasto||!montoGasto) return;
+          setGastos([...gastos,{nombre:nuevoGasto,monto:parseFloat(montoGasto)}]);
+          setNuevoGasto(""); setMontoGasto("");
+        }}>Agregar</button>
+
+        {gastos.map((g,i)=>(
+          <div key={i}>
+            {g.nombre} - ${g.monto}
+            <button onClick={()=>setGastos(gastos.filter((_,x)=>x!==i))}>❌</button>
+          </div>
+        ))}
+
+        <strong>Total: ${totalGastos}</strong>
+      </div>
+
+      <div className="card">
+        <h3>Deudas</h3>
+
+        <input placeholder="Nombre" value={nuevaDeuda} onChange={e=>setNuevaDeuda(e.target.value)} />
+        <input placeholder="Saldo" type="number" value={montoDeuda} onChange={e=>setMontoDeuda(e.target.value)} />
+
+        <button onClick={()=>{
+          if(!nuevaDeuda||!montoDeuda) return;
+          setDeudas([...deudas,{nombre:nuevaDeuda,saldo:parseFloat(montoDeuda)}]);
+          setNuevaDeuda(""); setMontoDeuda("");
+        }}>Agregar</button>
+
+        {deudas.map((d,i)=>(
+          <div key={i}>
+            {d.nombre} - ${d.saldo}
+            <button onClick={()=>{
+              const pago = prompt("¿Cuánto pagar?");
+              if(!pago) return;
+              const nueva = [...deudas];
+              nueva[i].saldo -= parseFloat(pago);
+              if(nueva[i].saldo < 0) nueva[i].saldo = 0;
+              setDeudas(nueva);
+            }}>💸</button>
+          </div>
+        ))}
+
+        <strong>Total deuda: ${totalDeuda}</strong>
+      </div>
+
+      <div className="card">
+        <h3>Resumen</h3>
+        <p>Disponible: ${disponible}</p>
+        <p>Meses para salir de deudas: {proyeccionMeses()}</p>
+      </div>
+
+    </div>
+  );
+}
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<App />);
+
+</script>
+</body>
+</html>
